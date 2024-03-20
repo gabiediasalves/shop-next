@@ -1,10 +1,120 @@
+import { stripe } from "@/lib/stripe"
+import { ImageContainer, ProductContainer, ProductDetails } from "@/styles/pages/product"
+import axios from "axios"
+import { GetStaticPaths, GetStaticProps } from "next"
+import Image from "next/image"
+// import { getStaticProps } from "next/dist/build/templates/pages"
 import { useRouter } from "next/router"
+import { useState } from 'react'
+import Stripe from "stripe"
+import Head from "next/head"
 
 
-export default function Product() {
-    const { query } = useRouter()
+interface productsProps {
+    product: {
+        id: string
+        name: string
+        imageUrl: string
+        price: string
+        description: string
+        defaultPriceId: string
+    }
+}
+
+export default function Product({ product }: productsProps) {
+    const [isCreatingCheckoutSession, setIsCreatingCheckoutSession] = useState(false)
+
+    async function handleBuyButton() {
+        try {
+            setIsCreatingCheckoutSession(true)
+            const response = await axios.post('/api/checkout', {
+                priceId: product.defaultPriceId,
+            })
+
+            const { checkoutUrl } = response.data
+
+            window.location.href = checkoutUrl
+        } catch (err) {
+            setIsCreatingCheckoutSession(false)
+
+        }
+    }
+
+    const { isFallback } = useRouter()
+
+    if (isFallback) {
+        return <p>Loading...</p>
+    }
 
     return (
-        <h1>Product</h1>
+        <>
+            <Head>
+                <title> {product.name} | Ignite Shop</title>
+            </Head>
+            <ProductContainer>
+                <ImageContainer>
+                    <Image src={product.imageUrl} width={520} height={480} alt="" />
+                </ImageContainer>
+
+                <ProductDetails>
+                    <h1>{product.name}</h1>
+                    <span>{product.price}</span>
+
+                    <p>{product.description}</p>
+                    <button disabled={isCreatingCheckoutSession} onClick={handleBuyButton}>
+                        Comprar agora
+                    </button>
+                </ProductDetails>
+            </ProductContainer>
+        </>
     )
+}
+
+export const getStaticPaths: GetStaticPaths = async () => {
+    return {
+        paths: [
+            {
+                params: { id: 'prod_MLH5Wy0Y97hDAC' }
+            }
+        ],
+        fallback: true,
+    }
+}
+
+
+export const getStaticProps: GetStaticProps<any, { id: string }> = async ({ params }) => {
+    if (!params) {
+        return {
+            notFound: true // ou qualquer outra ação apropriada caso params seja undefined
+        };
+    }
+
+    const productId = params.id;
+
+    const product = await stripe.products.retrieve(productId, {
+        expand: ['default_price']
+    })
+
+    const price = product.default_price as Stripe.Price;
+
+    const unitAmount = price.unit_amount ?? 0;
+
+
+    return {
+        props: {
+            product: {
+                id: product.id,
+                name: product.name,
+                imageUrl: product.images[0],
+                price: new Intl.NumberFormat('pt-BR', {
+                    style: 'currency',
+                    currency: 'BRL',
+                }).format(unitAmount / 100),
+                description: product.description,
+                defaultPriceId: price.id,
+            }
+        },
+        revalidate: 60 * 60 * 1 //1 hora
+
+    }
 }

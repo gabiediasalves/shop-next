@@ -1,7 +1,7 @@
 // import { styled } from "../styles"
 import Image from "next/image"
 import { GetStaticProps } from "next"
-
+import Head from "next/head"
 import { stripe } from "../lib/stripe"
 import { useKeenSlider } from 'keen-slider/react'
 
@@ -15,7 +15,7 @@ interface HomeProps {
     id: string
     name: string
     imageUrl: string
-    price: number
+    price: string
   }[]
 }
 
@@ -29,20 +29,31 @@ export default function Home({ products }: HomeProps) {
   });
 
   return (
-    <HomeContainer ref={sliderRef} className="keen-slider">
-      {products.map(product => {
-        return (
-          <Product key={product.id} className="keen-slider__slide">
-            <Image src={product.imageUrl} width={520} height={480} alt="" />
+    <>
+      <Head>
+        <title>Home | Ignite Shop</title>
+      </Head>
+      <HomeContainer ref={sliderRef} className="keen-slider">
 
-            <footer>
-              <strong>{product.name}</strong>
-              <span>{product.price}</span>
-            </footer>
-          </Product>
-        )
-      })}
-    </HomeContainer>
+        {products.map(product => {
+          return (
+            <Product
+              href={`/product/${product.id}`}
+              key={product.id}
+              className="keen-slider__slide"
+            >
+
+              <Image src={product.imageUrl} width={520} height={480} alt="" />
+
+              <footer>
+                <strong>{product.name}</strong>
+                <span>{product.price}</span>
+              </footer>
+            </Product>
+          )
+        })}
+      </HomeContainer>
+    </>
   )
 }
 
@@ -56,13 +67,13 @@ export const getStaticProps: GetStaticProps = async () => {
     const price = product.default_price as Stripe.Price;
 
     const unitAmount = price.unit_amount ?? 0;
-    
+
 
     return {
       id: product.id,
       name: product.name,
       imageUrl: product.images[0],
-      price:  new Intl.NumberFormat('pt-BR', {
+      price: new Intl.NumberFormat('pt-BR', {
         style: 'currency',
         currency: 'BRL',
       }).format(unitAmount / 100)
@@ -72,6 +83,6 @@ export const getStaticProps: GetStaticProps = async () => {
     props: {
       products
     },
-    revalidate: 60 * 60 * 2 // 2 hours,
+    revalidate: 60 * 60 * 1 // 1 hours,
   }
 }
